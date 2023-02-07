@@ -9,49 +9,37 @@ import os
 
 configfile: "config/config.yml"
 
-genes = glob_wildcards(os.path.join(os.get_cwd(), "{gene}.fasta"))
+print(os.path.cwd())
 
-genes_fasta = pd.DataFrame(list(genes.gene), columns=["gene"], dtype=str)
+#genes = glob_wildcards("{gene}.fasta")
 
-def get_genes():
-    
+print(os.path.cwd())
 
-def get_output(df):
-    outfiles = []
-    for sample in df["sample"]:
-        outfiles.append(f'results/{sample}/wtdbg/asm.fasta')
-        outfiles.append(f'results/{sample}/quast/report.txt')
-        outfiles.append(f'results/{sample}/fastp/{sample}_fastp_1.fq')
-        outfiles.append(f'results/{sample}/fastp/{sample}_fastp_2.fq')
-        outfiles.append(f'results/{sample}/fastp/{sample}_fastp.json')
-        outfiles.append(f'results/{sample}/fastp/{sample}_fastp.html')
-    return outfiles
+#genes_fasta = pd.DataFrame(list(genes.gene), columns=["gene"], dtype=str)
+
+print(genes)
+
 
 rule all:
     input:
-        get_output(df)
+        'results/trees/SUPERTREE.nwk'
 
 rule mafft:
-    ''''
-    Generate multiple sequence alignment using mafft.
-    ''''
     input:
-        fasta = "{gene}.fasta"
+        fasta = '{gene}.fasta'
     output:
-        aligned_fa = "results/msa/{gene}.aligned.fasta"
+        aligned_fa = 'results/msa/{gene}.aligned.fasta'
     params:
         maxiterate = 1000
     threads:
         config['mafft'].getint('threads', 2)
     shell:
-        'mafft --maxiterate {params.maxiterate} --globalpair '
-        '--thread {threads} {input.fasta} > {output.aligned_fa}'
+        '''
+        mafft --maxiterate {params.maxiterate} --globalpair --thread {threads} {input.fasta} > {output.aligned_fa}
+        '''
 
 
 rule trimming:
-    ''''
-    Trim the alignment with clipkit.
-    ''''
     input:
         alignment = rules.mafft.output
     output:
@@ -93,5 +81,7 @@ rule astral:
     output:
         supertree = 'results/trees/SUPERTREE.nwk'
     shell:
-        'java -jar /home/student7/phylogeny/data/mitochondrion_proteins/Astral/astral.5.7.3.jar '
-        '-i {input.genetrees} -o SUPERTREE.nwk'
+        '''
+        java -jar /home/student7/phylogeny/data/mitochondrion_proteins/Astral/astral.5.7.3.jar -i {input.genetrees} -o {output.supertree}
+        '''
+
