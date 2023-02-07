@@ -7,18 +7,9 @@
 import pandas as pd
 import os
 
-configfile: "config/config.yml"
+#configfile: "config/config.yml"
 
-print(os.path.cwd())
-
-#genes = glob_wildcards("{gene}.fasta")
-
-print(os.path.cwd())
-
-#genes_fasta = pd.DataFrame(list(genes.gene), columns=["gene"], dtype=str)
-
-print(genes)
-
+wildcards = glob_wildcards("data/{gene}.fasta")
 
 rule all:
     input:
@@ -26,13 +17,13 @@ rule all:
 
 rule mafft:
     input:
-        fasta = '{gene}.fasta'
+        fasta = 'data/{gene}.fasta'
     output:
         aligned_fa = 'results/msa/{gene}.aligned.fasta'
     params:
         maxiterate = 1000
-    threads:
-        config['mafft'].getint('threads', 2)
+    #threads:
+    #    config['mafft'].getint('threads', 2)
     shell:
         '''
         mafft --maxiterate {params.maxiterate} --globalpair --thread {threads} {input.fasta} > {output.aligned_fa}
@@ -43,31 +34,29 @@ rule trimming:
     input:
         alignment = rules.mafft.output
     output:
-        trimmed = 'results/trimmed/{gene}.trimmed.fasta',
-        pi = 'results/trimmed/{gene}.pi.fasta'
+        trimmed = 'results/msa/{gene}.trimmed.fasta'
     conda:
         'envs/clipkit.yml'
     shell:
         '''
-	    clipkit {input.alignment} -m kpic-smart-gap -o {output.trimmed};
-        clipkit {input.alignment} -m kpi-smart-gap -o {output.pi}
+	clipkit {input.alignment} -m kpic-smart-gap -o {output.trimmed}
         '''
 
 rule supertree:
     input:
         trimmed = rules.trimming.output.trimmed
     output:
-        tree = 'results/trimmed/{gene}.trimmed.fas.treefile'
-    threads:
-        config['iqtree'].getint('threads', 2)
+        tree = 'results/msa/{gene}.trimmed.fasta.treefile'
+    #threads:
+    #    config['iqtree'].getint('threads', 2)
     shell:
         '''
-        /opt/software/iqtree-2.2.0/bin/iqtree2 -s {input.trimmed} -redo -bb 1000 -nt {threads}
+        /opt/software/iqtree-2.2.0/bin/iqtree2 -s {input.trimmed} -redo -bb 1000 -nt 2
         '''
 
 rule concat_trees:
     input:
-        trees = expand('results/trimmed/{gene}.trimmed.fas.treefile')
+        trees = expand('results/msa/{gene}.trimmed.fasta.treefile', gene=wildcards.gene)
     output:
         genetrees = 'results/trees/GENETREES.nwk'
     shell:
