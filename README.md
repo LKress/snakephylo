@@ -27,7 +27,7 @@ Install snakemake (see https://snakemake.readthedocs.io/en/stable/getting_starte
 conda create -n snakemake -c conda-forge -c bioconda snakemake
 ```
 
-Install conda environments (for workdir setup check section [Usage](usage))
+Install conda environments (for workdir setup check section Usage)
 
 ```
 snakemake --cores 2 --use-conda --conda-create-envs-only --directory /path/to/workdir
