@@ -1,0 +1,97 @@
+# Main entrypoint of the Pseudobatos workflow.
+# @authors: Luis Kress, Johannes Hausmann
+# Please follow the best practices: 
+# https://snakemake.readthedocs.io/en/stable/snakefiles/best_practices.html,
+# in particular regarding the standardized folder structure mentioned there. 
+
+import pandas as pd
+import os
+
+configfile: "config/config.yml"
+
+genes = glob_wildcards(os.path.join(os.get_cwd(), "{gene}.fasta"))
+
+genes_fasta = pd.DataFrame(list(genes.gene), columns=["gene"], dtype=str)
+
+def get_genes():
+    
+
+def get_output(df):
+    outfiles = []
+    for sample in df["sample"]:
+        outfiles.append(f'results/{sample}/wtdbg/asm.fasta')
+        outfiles.append(f'results/{sample}/quast/report.txt')
+        outfiles.append(f'results/{sample}/fastp/{sample}_fastp_1.fq')
+        outfiles.append(f'results/{sample}/fastp/{sample}_fastp_2.fq')
+        outfiles.append(f'results/{sample}/fastp/{sample}_fastp.json')
+        outfiles.append(f'results/{sample}/fastp/{sample}_fastp.html')
+    return outfiles
+
+rule all:
+    input:
+        get_output(df)
+
+rule mafft:
+    ''''
+    Generate multiple sequence alignment using mafft.
+    ''''
+    input:
+        fasta = "{gene}.fasta"
+    output:
+        aligned_fa = "results/msa/{gene}.aligned.fasta"
+    params:
+        maxiterate = 1000
+    threads:
+        config['mafft'].getint('threads', 2)
+    shell:
+        'mafft --maxiterate {params.maxiterate} --globalpair '
+        '--thread {threads} {input.fasta} > {output.aligned_fa}'
+
+
+rule trimming:
+    ''''
+    Trim the alignment with clipkit.
+    ''''
+    input:
+        alignment = rules.mafft.output
+    output:
+        trimmed = 'results/trimmed/{gene}.trimmed.fasta',
+        pi = 'results/trimmed/{gene}.pi.fasta'
+    conda:
+        'envs/clipkit.yml'
+    shell:
+        '''
+	    clipkit {input.alignment} -m kpic-smart-gap -o {output.trimmed};
+        clipkit {input.alignment} -m kpi-smart-gap -o {output.pi}
+        '''
+
+rule supertree:
+    input:
+        trimmed = rules.trimming.output.trimmed
+    output:
+        tree = 'results/trimmed/{gene}.trimmed.fas.treefile'
+    threads:
+        config['iqtree'].getint('threads', 2)
+    shell:
+        '''
+        /opt/software/iqtree-2.2.0/bin/iqtree2 -s {input.trimmed} -redo -bb 1000 -nt {threads}
+        '''
+
+rule concat_trees:
+    input:
+        trees = expand('results/trimmed/{gene}.trimmed.fas.treefile')
+    output:
+        genetrees = 'results/trees/GENETREES.nwk'
+    shell:
+        '''
+        cat {input.trees} > {output.genetrees}
+        '''
+
+rule astral:
+    input:
+        genetrees = rules.concat_trees.output.genetrees
+    output:
+        supertree = 'results/trees/SUPERTREE.nwk'
+    shell:
+        'java -jar /home/student7/phylogeny/data/mitochondrion_proteins/Astral/astral.5.7.3.jar '
+        '-i {input.genetrees} -o SUPERTREE.nwk'

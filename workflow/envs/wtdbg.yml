@@ -1,0 +1,5 @@
+name: wtdbg
+channels:
+  - bioconda
+dependencies:
+  - wtdbg
