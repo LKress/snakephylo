@@ -1,13 +1,10 @@
-# Main entrypoint of the Pseudobatos workflow.
+# Main entrypoint for snakephylo workflow.
 # @authors: Luis Kress, Johannes Hausmann
-# Please follow the best practices: 
-# https://snakemake.readthedocs.io/en/stable/snakefiles/best_practices.html,
-# in particular regarding the standardized folder structure mentioned there. 
+#
+# This workflow generates phylogenetic trees based on single copy orthologes 
 
 import pandas as pd
 import os
-
-print(workflow.source_path("../config/config.yml"))
 
 configfile: workflow.source_path("../config/config.yml")
 
@@ -19,10 +16,15 @@ rule all:
         expand('results/{dataset}/trees/SUPERTREE.nwk', dataset=wildcards.dataset)
 
 rule mafft:
+    '''
+    Create a multiple sequence alignment using MAFFT.
+    '''
     input:
         fasta = 'data/{dataset}/{gene}.fasta'
     output:
         aligned_fa = 'results/{dataset}/msa/{gene}.aligned.fasta'
+    conda:
+        'envs/mafft.yml'
     params:
         maxiterate = config['mafft']['maxiterate']
     threads:
@@ -34,6 +36,9 @@ rule mafft:
 
 
 rule trimming:
+    '''
+    Trim the multiple sequence alignment with ClipKIT.
+    '''
     input:
         alignment = rules.mafft.output
     output:
@@ -46,20 +51,29 @@ rule trimming:
         '''
 
 rule supertree:
+    '''
+    Generate a tree for each gene with IQ-Tree.
+    '''
     input:
         trimmed = rules.trimming.output.trimmed
     output:
         tree = 'results/{dataset}/msa/{gene}.trimmed.fasta.treefile'
+    conda:
+        'envs/iqtree.yml'
     threads:
         config['iqtree']['threads']
     shell:
         '''
-        /opt/software/iqtree-2.2.0/bin/iqtree2 -s {input.trimmed} -redo -bb 1000 -nt 2
+        iqtree -s {input.trimmed} -redo -bb 1000 -nt 2
         '''
 
 rule concat_trees:
+    '''
+    Concatenates the gene trees from the IQ-Tree output into one file.
+    '''
     input:
-        trees = expand('results/{dataset}/msa/{gene}.trimmed.fasta.treefile', zip, gene=wildcards.gene, dataset=wildcards.dataset)
+        trees = expand('results/{dataset}/msa/{gene}.trimmed.fasta.treefile', 
+                       zip, gene=wildcards.gene, dataset=wildcards.dataset)
     output:
         genetrees = 'results/{dataset}/trees/GENETREES.nwk'
     shell:
@@ -68,12 +82,17 @@ rule concat_trees:
         '''
 
 rule astral:
+    '''
+    Generate a supertree from the concatenated genetrees
+    '''
     input:
         genetrees = rules.concat_trees.output.genetrees
     output:
         supertree = 'results/{dataset}/trees/SUPERTREE.nwk'
+    conda:
+        'envs/astral.yml'
     shell:
         '''
-        java -jar /home/student7/phylogeny/data/mitochondrion_proteins/Astral/astral.5.7.3.jar -i {input.genetrees} -o {output.supertree}
+        astral -i {input.genetrees} -o {output.supertree}
         '''
 
