@@ -7,23 +7,26 @@
 import pandas as pd
 import os
 
-#configfile: "config/config.yml"
+print(workflow.source_path("../config/config.yml"))
 
-wildcards = glob_wildcards("data/{gene}.fasta")
+configfile: workflow.source_path("../config/config.yml")
+
+wildcards = glob_wildcards("data/{dataset}/{gene}.fasta")
+
 
 rule all:
     input:
-        'results/trees/SUPERTREE.nwk'
+        expand('results/{dataset}/trees/SUPERTREE.nwk', dataset=wildcards.dataset)
 
 rule mafft:
     input:
-        fasta = 'data/{gene}.fasta'
+        fasta = 'data/{dataset}/{gene}.fasta'
     output:
-        aligned_fa = 'results/msa/{gene}.aligned.fasta'
+        aligned_fa = 'results/{dataset}/msa/{gene}.aligned.fasta'
     params:
-        maxiterate = 1000
-    #threads:
-    #    config['mafft'].getint('threads', 2)
+        maxiterate = config['mafft']['maxiterate']
+    threads:
+        config['mafft']['threads']
     shell:
         '''
         mafft --maxiterate {params.maxiterate} --globalpair --thread {threads} {input.fasta} > {output.aligned_fa}
@@ -34,7 +37,7 @@ rule trimming:
     input:
         alignment = rules.mafft.output
     output:
-        trimmed = 'results/msa/{gene}.trimmed.fasta'
+        trimmed = 'results/{dataset}/msa/{gene}.trimmed.fasta'
     conda:
         'envs/clipkit.yml'
     shell:
@@ -46,9 +49,9 @@ rule supertree:
     input:
         trimmed = rules.trimming.output.trimmed
     output:
-        tree = 'results/msa/{gene}.trimmed.fasta.treefile'
-    #threads:
-    #    config['iqtree'].getint('threads', 2)
+        tree = 'results/{dataset}/msa/{gene}.trimmed.fasta.treefile'
+    threads:
+        config['iqtree']['threads']
     shell:
         '''
         /opt/software/iqtree-2.2.0/bin/iqtree2 -s {input.trimmed} -redo -bb 1000 -nt 2
@@ -56,9 +59,9 @@ rule supertree:
 
 rule concat_trees:
     input:
-        trees = expand('results/msa/{gene}.trimmed.fasta.treefile', gene=wildcards.gene)
+        trees = expand('results/{dataset}/msa/{gene}.trimmed.fasta.treefile', zip, gene=wildcards.gene, dataset=wildcards.dataset)
     output:
-        genetrees = 'results/trees/GENETREES.nwk'
+        genetrees = 'results/{dataset}/trees/GENETREES.nwk'
     shell:
         '''
         cat {input.trees} > {output.genetrees}
@@ -68,7 +71,7 @@ rule astral:
     input:
         genetrees = rules.concat_trees.output.genetrees
     output:
-        supertree = 'results/trees/SUPERTREE.nwk'
+        supertree = 'results/{dataset}/trees/SUPERTREE.nwk'
     shell:
         '''
         java -jar /home/student7/phylogeny/data/mitochondrion_proteins/Astral/astral.5.7.3.jar -i {input.genetrees} -o {output.supertree}

@@ -1,2 +1,7 @@
-[mafft]
-threads=2
+mafft:
+  threads: 2
+  maxiterate: 1000
+iqtree:
+  threads: 2
+
+

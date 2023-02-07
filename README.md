@@ -29,26 +29,31 @@ conda create -n snakemake -c conda-forge -c bioconda snakemake
 
 ## Usage
 
-Create a workdirectory and within this directory create a directory called `data`.
-In this `data` directory, copy or symlink the input orthologuous genes in fasta format with the suffix `.fasta`.
-The filenames should contain the genename (`<gene>.fasta`). 
+Create a workdirectory with the following directory structure:
 
 ```
-mkdir /path/to/workdir/
-mkdir /path/to/workdir/data
-cp /path/to/orthologues/*.fasta /path/to/workdir/data
+<workdir>/
+├── data/
+    ├── <dataset1>/
+    │    ├── <gene1>.fasta
+    │	 ├── <gene2>.fasta
+    ├── <dataset2>/
+         ├── <gene1>.fasta
+         ├── <gene2>.fasta
 ```
+
+All names in in brackets (`<>`) can be chosen freely.
 
 To run a dry run execute:
 
 ```
-snakemake --cores 2 --use-conda --directory /home/student7/phylogeny/testinput/ -n
+snakemake --cores 2 --use-conda --directory /path/to/workdir -n
 ```
 
 To execute the pipeline:
 
 ```
-snakemake --cores 2 --use-conda --directory /home/student7/phylogeny/testinput/
+snakemake --cores 2 --use-conda --directory /path/to/workdir
 ```
 
 ## Output
