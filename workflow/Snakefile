@@ -1,14 +1,14 @@
 # Main entrypoint for snakephylo workflow.
 # @authors: Luis Kress, Johannes Hausmann
 #
-# This workflow generates phylogenetic trees based on single copy orthologes 
+# This workflow generates phylogenetic trees based on single copy orthologes.
 
 import pandas as pd
 import os
 
-configfile: workflow.source_path("../config/config.yml")
+configfile: workflow.source_path('../config/config.yml')
 
-wildcards = glob_wildcards("data/{dataset}/{gene}.fasta")
+wildcards = glob_wildcards('data/{dataset}/{gene}.fasta')
 
 
 rule all:
@@ -29,10 +29,11 @@ rule mafft:
         maxiterate = config['mafft']['maxiterate']
     threads:
         config['mafft']['threads']
+    log:
+        'results/{dataset}/log/{gene}_mafft.log'
     shell:
-        '''
-        mafft --maxiterate {params.maxiterate} --globalpair --thread {threads} {input.fasta} > {output.aligned_fa}
-        '''
+        'mafft --maxiterate {params.maxiterate} --globalpair --thread {threads} '
+        '{input.fasta} > {output.aligned_fa} 2> {log}'
 
 
 rule trimming:
@@ -45,9 +46,11 @@ rule trimming:
         trimmed = 'results/{dataset}/msa/{gene}.trimmed.fasta'
     conda:
         'envs/clipkit.yml'
+    log:
+        'results/{dataset}/log/{gene}_clipkit.log'
     shell:
         '''
-	clipkit {input.alignment} -m kpic-smart-gap -o {output.trimmed}
+	    clipkit {input.alignment} -m kpic-smart-gap -o {output.trimmed} &> {log}
         '''
 
 rule supertree:
@@ -62,9 +65,11 @@ rule supertree:
         'envs/iqtree.yml'
     threads:
         config['iqtree']['threads']
+    log:
+        'results/{dataset}/log/{gene}_iqtree.log'
     shell:
         '''
-        iqtree -s {input.trimmed} -redo -bb 1000 -nt 2
+        iqtree -s {input.trimmed} -redo -bb 1000 -nt 2 &> {log}
         '''
 
 rule concat_trees:
@@ -91,8 +96,10 @@ rule astral:
         supertree = 'results/{dataset}/trees/SUPERTREE.nwk'
     conda:
         'envs/astral.yml'
+    log:
+        'results/{dataset}/log/astral.log'
     shell:
         '''
-        astral -i {input.genetrees} -o {output.supertree}
+        astral -i {input.genetrees} -o {output.supertree} &> {log}
         '''
 
